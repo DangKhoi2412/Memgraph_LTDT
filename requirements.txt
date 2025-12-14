@@ -1,0 +1,5 @@
+streamlit
+networkx
+pyvis
+neo4j
+pandas

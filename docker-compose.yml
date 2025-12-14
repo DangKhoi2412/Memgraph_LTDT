@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # 1. Container Database (Memgraph)
+  memgraph:
+    image: memgraph/memgraph-platform
+    container_name: memgraph-db
+    ports:
+      - "7687:7687"  # Port kết nối Bolt
+      - "3000:3000"  # Port giao diện Memgraph Lab
+    environment:
+      - MEMGRAPH_USER=       # Để trống tức là không pass
+      - MEMGRAPH_PASSWORD=
+    # (Tùy chọn) Bỏ comment dòng dưới nếu muốn dữ liệu tồn tại sau khi tắt docker
+    # volumes:
+    #   - ./mg_lib:/var/lib/memgraph
+
+  # 2. Container App (Python Streamlit)
+  app:
+    build: .
+    container_name: graph-app
+    ports:
+      - "8501:8501"
+    depends_on:
+      - memgraph
+    environment:
+      # QUAN TRỌNG: Trong Docker, host không phải là localhost mà là tên service "memgraph"
+      - MEMGRAPH_HOST=memgraph
+    volumes:
+      # Mount code vào để khi bạn sửa code ở ngoài, trong docker tự cập nhật (Hot reload)
+      - ./:/app
