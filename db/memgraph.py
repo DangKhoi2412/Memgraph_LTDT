@@ -1,5 +1,4 @@
 from neo4j import GraphDatabase
-import streamlit as st
 import os
 
 class MemgraphClient:
@@ -10,16 +9,16 @@ class MemgraphClient:
             cls._instance = super(MemgraphClient, cls).__new__(cls)
             cls._instance.driver = None
             
-            # Lấy host từ Docker Compose
-            host = os.getenv("MEMGRAPH_HOST", "127.0.0.1")
+            # Host: Trong Docker là 'memgraph-db', Local là 'localhost'
+            host = os.getenv("MEMGRAPH_HOST", "memgraph-db")
             uri = f"bolt://{host}:7687"
             
             try:
-                # Kết nối dùng Neo4j driver (Tương thích 100% với Memgraph)
+                # Memgraph mặc định không có user/pass
                 driver = GraphDatabase.driver(uri, auth=("", ""))
                 driver.verify_connectivity()
                 cls._instance.driver = driver
-                print(f"✅ Kết nối Memgraph (qua Neo4j Driver) thành công tại {uri}!")
+                print(f"✅ Kết nối Memgraph thành công tại {uri}")
             except Exception as e:
                 cls._instance.driver = None
                 print(f"⚠️ Không thể kết nối DB: {e}")
@@ -40,8 +39,8 @@ class MemgraphClient:
         try:
             with self.driver.session() as session:
                 result = session.run(query, params)
-                # Chuyển kết quả Neo4j thành List các Dictionary (Python chuẩn)
+                # Trả về list các record (dictionary)
                 return [record.data() for record in result]
         except Exception as e:
-            st.error(f"Lỗi truy vấn: {e}")
+            print(f"Query Error: {e}")
             return []
