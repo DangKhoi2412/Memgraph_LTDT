@@ -7,10 +7,8 @@ class GraphService:
 
     def load_from_db(self):
         """
-        Đọc dữ liệu từ Memgraph lên App.
-        CHUẨN HÓA OUTPUT: 
-          - nodes: List[str] -> ['A', 'B']
-          - edges: List[dict] -> [{'source': 'A', 'target': 'B', 'weight': 1}, ...]
+        Tải dữ liệu an toàn từ Memgraph.
+        Đã thêm cơ chế chống Crash khi dữ liệu bị lỗi (NoneType).
         """
         if not self.client.is_connected():
             return [], []
@@ -18,23 +16,38 @@ class GraphService:
         try:
             # 1. Tải Đỉnh
             q_nodes = "MATCH (n:Node) RETURN n.name as name"
-            nodes = [r['name'] for r in self.client.execute_query(q_nodes) if r.get('name')]
+            # Ép kiểu str() để tránh lỗi nếu DB trả về null
+            nodes = [str(r['name']) for r in self.client.execute_query(q_nodes) if r.get('name')]
             
-            # 2. Tải Cạnh (Mapping ngay tại câu query DB để trả về key chuẩn)
+            # 2. Tải Cạnh
+            # Lấy source, target và weight
             q_edges = """
             MATCH (u:Node)-[r:LINK]->(v:Node) 
             RETURN u.name as source, v.name as target, r.weight as weight
             """
             raw_edges = self.client.execute_query(q_edges)
             
-            # Xử lý an toàn dữ liệu trả về
             edges = []
             for r in raw_edges:
-                if r.get('source') and r.get('target'):
+                src = r.get('source')
+                tgt = r.get('target')
+                w_raw = r.get('weight')
+
+                # SAFETY CHECK: Xử lý trọng số an toàn
+                # Nếu DB lưu bậy bạ (null, string rác), mặc định về 1 để App không bị sập
+                weight = 1
+                try:
+                    if w_raw is not None:
+                        weight = int(w_raw)
+                except:
+                    weight = 1
+                
+                # Chỉ lấy cạnh khi có đủ 2 đầu mút
+                if src and tgt:
                     edges.append({
-                        "source": r['source'], 
-                        "target": r['target'], 
-                        "weight": int(r.get('weight', 1))
+                        "source": str(src), 
+                        "target": str(tgt), 
+                        "weight": weight
                     })
             
             print(f"📥 [LOAD] Đã tải: {len(nodes)} đỉnh, {len(edges)} cạnh.")
@@ -46,81 +59,70 @@ class GraphService:
 
     def sync_to_db(self, nodes, edges):
         """
-        Ghi đè dữ liệu xuống Memgraph dùng BATCH PROCESSING (UNWIND).
-        Tốc độ nhanh, nguyên tử (atomic), ít lỗi.
+        Lưu dữ liệu xuống Memgraph.
+        SỬ DỤNG CHIẾN THUẬT 'MERGE-ALL' ĐỂ KHÔNG BAO GIỜ MẤT CẠNH.
         """
         if not self.client.is_connected():
-            print("⚠️ Memgraph chưa kết nối.")
             return
 
-        print(f"🚀 [SYNC BATCH] Đang xử lý {len(nodes)} đỉnh và {len(edges)} cạnh...")
-
         try:
-            # BƯỚC 1: CHUẨN HÓA DỮ LIỆU ĐẦU VÀO
-            clean_nodes = [{"name": str(n).strip()} for n in nodes]
+            # 1. Chuẩn hóa dữ liệu đầu vào
+            clean_nodes = [{"name": str(n).strip()} for n in nodes if n]
             
             clean_edges = []
             for e in edges:
-                # Ưu tiên lấy key chuẩn 'source'/'target', fallback sang key cũ ('src', 'dst') nếu có
-                src = str(e.get('source', e.get('src', ''))).strip()
-                dst = str(e.get('target', e.get('dst', e.get('target', '')))).strip()
-                w = int(e.get('weight', e.get('w', 1)))
+                # Hỗ trợ cả 2 loại key (cũ và mới) để tương thích với UI
+                src = e.get('source') or e.get('src')
+                dst = e.get('target') or e.get('dst')
+                w = e.get('weight') or e.get('w', 1)
                 
                 if src and dst:
-                    clean_edges.append({"source": src, "target": dst, "weight": w})
+                    clean_edges.append({
+                        "source": str(src).strip(), 
+                        "target": str(dst).strip(), 
+                        "weight": int(w)
+                    })
 
-            # BƯỚC 2: RESET GRAPH (Xóa cũ)
+            # 2. Reset Graph (Xóa sạch cũ)
             self.client.execute_query("MATCH (n) DETACH DELETE n")
 
-            # BƯỚC 3: BATCH INSERT NODES (1 Query duy nhất)
+            # 3. Tạo Đỉnh (Batch Nodes)
             if clean_nodes:
-                q_create_nodes = """
-                UNWIND $batch_nodes as row
-                MERGE (:Node {name: row.name})
-                """
-                self.client.execute_query(q_create_nodes, {"batch_nodes": clean_nodes})
+                q_nodes = "UNWIND $batch as row MERGE (:Node {name: row.name})"
+                self.client.execute_query(q_nodes, {"batch": clean_nodes})
 
-            # BƯỚC 4: BATCH INSERT EDGES (1 Query duy nhất)
+            # 4. Tạo Cạnh (Batch Edges) - PHẦN SỬA QUAN TRỌNG NHẤT
+            # Thay vì MATCH (tìm), ta dùng MERGE cho cả Node đầu và cuối.
+            # Điều này ép buộc Database phải đảm bảo Node tồn tại rồi mới nối cạnh.
             if clean_edges:
-                q_create_edges = """
-                UNWIND $batch_edges as row
-                MATCH (u:Node {name: row.source}), (v:Node {name: row.target})
+                q_edges = """
+                UNWIND $batch as row
+                MERGE (u:Node {name: row.source})
+                MERGE (v:Node {name: row.target})
                 MERGE (u)-[r:LINK]->(v)
                 SET r.weight = row.weight
                 """
-                self.client.execute_query(q_create_edges, {"batch_edges": clean_edges})
+                self.client.execute_query(q_edges, {"batch": clean_edges})
 
-            print(f"✅ [SYNC SUCCESS] Hoàn tất đồng bộ!")
+            print(f"✅ [SYNC] Đã lưu {len(clean_nodes)} đỉnh, {len(clean_edges)} cạnh.")
 
         except Exception as e:
             print(f"❌ [SYNC ERROR] {e}")
 
     def build_networkx_graph(self, nodes, edges, for_mst=False):
-        """Tạo đồ thị NetworkX từ danh sách cạnh chuẩn hóa"""
-        if for_mst:
-            G = nx.Graph()
-            G.add_nodes_from(nodes)
-            edge_map = {}
-            for e in edges:
-                u = e.get('source', e.get('src'))
-                v = e.get('target', e.get('dst', e.get('target')))
-                w = int(e.get('weight', e.get('w', 1)))
-                
-                if u and v:
-                    # Vô hướng: (A,B) là (B,A), lấy min weight
-                    key = tuple(sorted((u, v)))
-                    edge_map[key] = min(edge_map.get(key, float('inf')), w)
+        """Helper để tạo đồ thị NetworkX dùng cho thuật toán"""
+        G = nx.Graph() if for_mst else nx.DiGraph()
+        G.add_nodes_from(nodes)
+        
+        for e in edges:
+            u = e.get('source') or e.get('src')
+            v = e.get('target') or e.get('dst')
+            w = e.get('weight') or e.get('w', 1)
             
-            for (u, v), w in edge_map.items():
-                G.add_edge(u, v, weight=w)
-        else:
-            G = nx.DiGraph()
-            G.add_nodes_from(nodes)
-            for e in edges:
-                u = e.get('source', e.get('src'))
-                v = e.get('target', e.get('dst', e.get('target')))
-                w = int(e.get('weight', e.get('w', 1)))
-                
-                if u and v:
+            if u and v:
+                if for_mst and G.has_edge(u, v):
+                    if w < G[u][v]['weight']:
+                        G.add_edge(u, v, weight=w)
+                else:
                     G.add_edge(u, v, weight=w)
         return G

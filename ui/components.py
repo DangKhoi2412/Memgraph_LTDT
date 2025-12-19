@@ -96,14 +96,24 @@ class Components:
                 c3.selectbox("Đến", session_state.nodes, key="input_edge_target")
                 
                 def add_e():
-                    s = st.session_state.input_edge_src
-                    d = st.session_state.input_edge_target
-                    w = st.session_state.input_edge_w
+                    # 1. Lấy dữ liệu từ key của input
+                    s = st.session_state.get("input_edge_src")
+                    d = st.session_state.get("input_edge_target")
+                    w = st.session_state.get("input_edge_w", 1)
                     
                     if s and d:
-                        # --- CHUẨN HÓA KEY KHI THÊM MỚI: 'source', 'target' ---
-                        session_state.edges.append({"source": s, "target": d, "weight": int(w)})
-                        on_change_callback()
+                        # 2. CHUẨN HÓA TUYỆT ĐỐI: Chỉ dùng source, target, weight
+                        new_edge = {
+                            "source": str(s).strip(),
+                            "target": str(d).strip(),
+                            "weight": int(w)
+                        }
+                        
+                        # 3. Kiểm tra trùng lặp trước khi thêm để tránh rác DB
+                        if new_edge not in session_state.edges:
+                            session_state.edges.append(new_edge)
+                            # 4. Đảm bảo callback lưu vào DB được thực hiện
+                            on_change_callback()
                         
                 c4.form_submit_button("Thêm", type="primary", on_click=add_e, use_container_width=True)
 
