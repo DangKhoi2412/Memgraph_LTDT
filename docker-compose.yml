@@ -11,6 +11,7 @@ services:
       - ./mg_lib:/var/lib/memgraph
       - ./mg_log:/var/log/memgraph
       - ./mg_etc:/etc/memgraph
+      - ./memgraph.conf:/etc/memgraph/memgraph.conf
   app:
     build: .
     container_name: streamlit-app
