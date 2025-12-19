@@ -1,3 +1,5 @@
+# FILE: dangkhoi2412/memgraph_ltdt/Memgraph_LTDT-9204a059e3cbaedf5e3a36c0029fcffe185d10b6/db/memgraph.py
+
 from neo4j import GraphDatabase
 import os
 
@@ -9,12 +11,11 @@ class MemgraphClient:
             cls._instance = super(MemgraphClient, cls).__new__(cls)
             cls._instance.driver = None
             
-            # Host: Trong Docker là 'memgraph-db', Local là 'localhost'
+            # Host: 'memgraph-db' trong Docker, 'localhost' ở ngoài
             host = os.getenv("MEMGRAPH_HOST", "memgraph-db")
             uri = f"bolt://{host}:7687"
             
             try:
-                # Memgraph mặc định không có user/pass
                 driver = GraphDatabase.driver(uri, auth=("", ""))
                 driver.verify_connectivity()
                 cls._instance.driver = driver
@@ -30,17 +31,41 @@ class MemgraphClient:
             self.driver.close()
 
     def is_connected(self):
-        return self.driver is not None
+        # Kiểm tra kỹ hơn thay vì chỉ check not None
+        try:
+            if self.driver:
+                self.driver.verify_connectivity()
+                return True
+        except:
+            pass
+        return False
 
     def execute_query(self, query, params=None):
-        if not self.is_connected():
-            return []
-        
+        if not self.driver: return [] # Check driver trực tiếp để tránh overhead verify_connectivity liên tục
         try:
             with self.driver.session() as session:
                 result = session.run(query, params)
-                # Trả về list các record (dictionary)
                 return [record.data() for record in result]
         except Exception as e:
             print(f"Query Error: {e}")
             return []
+
+    # --- BỔ SUNG HÀM NÀY ĐỂ FIX LỖI ---
+    def execute_batch(self, operations):
+        """
+        Thực thi một danh sách các thao tác trong 1 Transaction duy nhất.
+        operations: List of tuples (query, params)
+        """
+        if not self.driver: return False
+        
+        try:
+            with self.driver.session() as session:
+                # Dùng transaction explicit
+                with session.begin_transaction() as tx:
+                    for query, params in operations:
+                        tx.run(query, params)
+                    tx.commit() # Chỉ lưu khi TẤT CẢ lệnh đều thành công
+            return True
+        except Exception as e:
+            print(f"❌ Batch Transaction Error: {e}")
+            return False

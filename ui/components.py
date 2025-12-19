@@ -7,15 +7,11 @@ class Components:
         
         val_lbl = "ĐỈNH ĐÃ DUYỆT"
         val_num = 0
-        path_lbl = "📌 CHI TIẾT LỘ TRÌNH / CẠNH:"
+        path_lbl = "📌 CHI TIẾT LỘ TRÌNH:"
         path_txt = ""
 
-        if res.get('type') == 'mst':
-            val_lbl = "TỔNG TRỌNG SỐ"
-            val_num = res.get('cost', 0)
-            path_txt = ",  ".join([f"({u}-{v})" for u, v in res.get('mst_edges', [])])
-        
-        elif res.get('type') == 'path':
+        # Chỉ còn 2 trường hợp: Pathfinding (Dijkstra/BF) hoặc Traversal (BFS/DFS)
+        if res.get('type') == 'path':
             val_lbl = "TỔNG CHI PHÍ"
             val_num = res.get('cost', 0)
             path_txt = " ➝ ".join(res.get('path_nodes', []))
@@ -40,6 +36,8 @@ class Components:
 
     @staticmethod
     def input_section(session_state, on_change_callback):
+        # Phần input này giữ nguyên vì nó dùng để nhập liệu
+        # Logic nhập liệu (Từ -> Đến) đã phù hợp với đồ thị có hướng
         col_L, col_R = st.columns([1, 1.8], gap="large")
 
         # --- NODES ---
@@ -56,7 +54,7 @@ class Components:
                         if clean_name not in session_state.nodes:
                             session_state.nodes.append(clean_name)
                             session_state.dirty = True 
-                            on_change_callback() # <--- QUAN TRỌNG
+                            on_change_callback()
                 
                 c2.form_submit_button("Thêm", type="primary", on_click=add_n, use_container_width=True)
 
@@ -78,14 +76,14 @@ class Components:
                             if e.get('source') != name and e.get('target') != name
                         ]
                         session_state.dirty = True 
-                        on_change_callback() # <--- QUAN TRỌNG
+                        on_change_callback()
                         
                     r2.button("✕", key=f"dn_{i}", type="secondary", use_container_width=True, on_click=del_n)
                     st.markdown("<hr>", unsafe_allow_html=True)
 
         # --- EDGES ---
         with col_R:
-            st.markdown('<div class="input-title">🔗 QUẢN LÝ CẠNH</div>', unsafe_allow_html=True)
+            st.markdown('<div class="input-title">🔗 QUẢN LÝ CẠNH (CÓ HƯỚNG)</div>', unsafe_allow_html=True)
             with st.form("f_edge", clear_on_submit=False):
                 c1, c2, c3, c4 = st.columns([2, 1.5, 2, 1.2], vertical_alignment="bottom")
                 
@@ -107,7 +105,7 @@ class Components:
                         if new_edge not in session_state.edges:
                             session_state.edges.append(new_edge)
                             session_state.dirty = True 
-                            on_change_callback() # <--- QUAN TRỌNG
+                            on_change_callback()
                         
                 c4.form_submit_button("Thêm", type="primary", on_click=add_e, use_container_width=True)
 
@@ -127,13 +125,14 @@ class Components:
                     dst = e.get('target', e.get('target', '?')) 
                     w   = e.get('weight', e.get('w', 0))
 
+                    # Hiển thị mũi tên chỉ hướng rõ ràng
                     r1.write(f"{src} ➝ {dst}")
                     r2.write(f"{int(w)}")
                     
                     def del_e(idx=i):
                         session_state.edges.pop(idx)
                         session_state.dirty = True 
-                        on_change_callback() # <--- QUAN TRỌNG
+                        on_change_callback()
                         
                     r3.button("✕", key=f"de_{i}", type="secondary", use_container_width=True, on_click=del_e)
                     st.markdown("<hr>", unsafe_allow_html=True)

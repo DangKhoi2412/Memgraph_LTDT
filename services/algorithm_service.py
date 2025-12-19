@@ -1,21 +1,20 @@
 from algorithms.traversal import BFS, DFS
 from algorithms.pathfinding import Dijkstra, BellmanFord
-from algorithms.mst import MSTAlgorithm
+# Đã xóa import MST
 
 class AlgorithmFactory:
     _algos = {
         "BFS": BFS(),
         "DFS": DFS(),
         "Dijkstra": Dijkstra(),
-        "Bellman-Ford": BellmanFord(),
-        "Prim (MST)": MSTAlgorithm('prim'),
-        "Kruskal (MST)": MSTAlgorithm('kruskal')
+        "Bellman-Ford": BellmanFord()
+        # Đã xóa Prim và Kruskal
     }
 
     @classmethod
     def get_algorithm(cls, name):
-        return cls._algos.get(name.split(" ")[0])
+        # Lấy tên thuật toán an toàn hơn
+        key = name.split(" ")[0]
+        return cls._algos.get(key)
     
-    @staticmethod
-    def is_mst(name):
-        return "MST" in name
+    # Đã xóa staticmethod is_mst vì không còn dùng

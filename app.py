@@ -19,7 +19,7 @@ if 'graph_service' not in st.session_state:
 if "dirty" not in st.session_state:
     st.session_state.dirty = False
 
-# --- QUY TRÌNH TẢI DỮ LIỆU AN TOÀN ---
+# --- QUY TRÌNH TẢI DỮ LIỆU ---
 if 'data_loaded' not in st.session_state:
     try:
         db_nodes, db_edges = st.session_state.graph_service.load_from_db()
@@ -43,9 +43,6 @@ if 'algo_result' not in st.session_state: st.session_state.algo_result = {}
 def sync_data():
     if not st.session_state.dirty:
         return
-
-    # 🔥 FIX: Bỏ đoạn kiểm tra if not st.session_state.edges
-    # Cho phép sync kể cả khi list rỗng để đảm bảo DB đúng với UI
     
     st.session_state.graph_service.sync_to_db(
         st.session_state.nodes,
@@ -55,24 +52,27 @@ def sync_data():
     st.session_state.dirty = False
 
 # 3. UI LAYOUT
-st.title("Chương Trình Mô Phỏng Đồ Thị")
+st.title("Chương Trình Mô Phỏng Đồ Thị (Có Hướng)")
 
 col_viz, col_ctrl = st.columns([4, 1], gap="large")
 
 # CỘT PHẢI
 with col_ctrl:
     st.markdown("### 🎮 Bảng Điều Khiển")
-    algos = ["BFS", "DFS", "Dijkstra", "Bellman-Ford", "Prim (MST)", "Kruskal (MST)"]
+    # Đã xóa MST khỏi danh sách
+    algos = ["BFS", "DFS", "Dijkstra", "Bellman-Ford"]
     algo_name = st.selectbox("Chọn Thuật toán", algos)
     
-    is_mst = AlgorithmFactory.is_mst(algo_name)
-    need_end = not (is_mst or "BFS" in algo_name or "DFS" in algo_name)
-    
-    if is_mst: st.info("⚠️ MST Mode: Xử lý Vô Hướng.")
+    # Logic xác định cần nút End hay không (Dijkstra/Bellman-Ford cần End, BFS/DFS không bắt buộc)
+    need_end = algo_name not in ["BFS", "DFS"]
     
     c1 = st.container()
     start = c1.selectbox("Bắt đầu", st.session_state.nodes) if st.session_state.nodes else None
-    end = c1.selectbox("Kết thúc", st.session_state.nodes) if st.session_state.nodes and need_end else None
+    
+    # Hiển thị chọn điểm kết thúc nếu thuật toán yêu cầu
+    end = None
+    if st.session_state.nodes and need_end:
+        end = c1.selectbox("Kết thúc", st.session_state.nodes)
 
     st.write("")
     if st.button("🚀 THỰC HIỆN", type="primary", use_container_width=True):
@@ -80,10 +80,13 @@ with col_ctrl:
             st.error("Đồ thị trống!")
         else:
             try:
-                G = st.session_state.graph_service.build_networkx_graph(st.session_state.nodes, st.session_state.edges, for_mst=is_mst)
-                if is_mst and not nx.is_connected(G): st.warning("Đồ thị không liên thông!")
+                # Luôn build đồ thị có hướng, bỏ tham số for_mst
+                G = st.session_state.graph_service.build_networkx_graph(st.session_state.nodes, st.session_state.edges)
+                
                 algorithm = AlgorithmFactory.get_algorithm(algo_name)
+                # Thực thi thuật toán
                 res = algorithm.execute(G, start, end)
+                
                 st.session_state.algo_result = res
                 st.session_state.algo_result['algo_name'] = algo_name
             except Exception as e:
@@ -98,7 +101,7 @@ with col_ctrl:
         st.session_state.nodes = []
         st.session_state.edges = []
         st.session_state.dirty = True
-        sync_data() # Gọi sync ngay
+        sync_data() 
         st.rerun()
         
     if st.button("🔥 Xóa DB thật"):
@@ -111,11 +114,12 @@ with col_ctrl:
 # CỘT TRÁI
 with col_viz:
     res = st.session_state.algo_result
-    viz_mode_mst = res.get('is_mst_mode', False)
     
     if st.session_state.nodes:
-        G_viz = st.session_state.graph_service.build_networkx_graph(st.session_state.nodes, st.session_state.edges, for_mst=viz_mode_mst)
-        html = Visualizer.render(G_viz, res, is_mst=viz_mode_mst)
+        # Visualizer cũng bỏ chế độ mst
+        G_viz = st.session_state.graph_service.build_networkx_graph(st.session_state.nodes, st.session_state.edges)
+        # Lưu ý: Bạn cần kiểm tra xem Visualizer.render có tham số is_mst không để bỏ hoặc set False
+        html = Visualizer.render(G_viz, res, is_mst=False) 
         components.html(html, height=550)
     else:
         st.info("Chưa có dữ liệu.")
