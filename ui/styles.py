@@ -3,20 +3,15 @@ import streamlit as st
 def load_css():
     st.markdown("""
     <style>
-        /* CSS TỐI ƯU GIAO DIỆN (Code Mẫu) */
         html, body, [class*="css"] {
             font-family: 'Segoe UI', Roboto, sans-serif;
             font-size: 16px; 
             color: #333;
         }
-        
-        /* --- Padding chuẩn --- */
         .block-container {
             padding-top: 1rem !important;
             padding-bottom: 2rem !important;
         }
-
-        /* Button Styles */
         div.stButton > button {
             min-height: 48px !important;
             font-size: 16px !important;
@@ -34,8 +29,6 @@ def load_css():
             border: 1px solid #CFD8DC !important;
             color: #546E7A !important;
         }
-        
-        /* Result Card - Style Cũ */
         .result-card {
             background-color: #F1F8E9;
             border: 1px solid #C5E1A5;
@@ -58,8 +51,6 @@ def load_css():
             border-radius: 4px; border: 1px solid #DCEDC8;
             font-size: 0.9rem; color: #33691E; font-weight: 600;
         }
-
-        /* Input & Grid */
         .grid-header { font-size: 0.9rem; font-weight: 700; color: #455A64; text-transform: uppercase; margin-bottom: 5px; }
         .input-title { font-size: 1.1rem; font-weight: 700; color: #2E7D32; margin-bottom: 10px; border-bottom: 2px solid #E8F5E9; padding-bottom: 5px; }
         hr { margin: 0.5rem 0 !important; border-color: #EEEEEE; }

@@ -4,7 +4,6 @@ import tempfile
 class Visualizer:
     @staticmethod
     def render(G, result, is_mst=False):
-        # --- SỬA Ở ĐÂY: height="550px" ---
         net = Network(height="550px", width="100%", bgcolor="#FFFFFF", font_color="#000", directed=not is_mst)
         
         path = result.get('path_nodes', [])
@@ -32,7 +31,6 @@ class Visualizer:
             
             net.add_edge(u, v, label=str(d.get('weight', 1)), color=color, width=width)
 
-        # --- SỬA Ở ĐÂY: springLength: 120 ---
         net.set_options('{"physics": {"forceAtlas2Based": {"gravitationalConstant": -100, "springLength": 120}, "solver": "forceAtlas2Based"}}')
         
         with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp:

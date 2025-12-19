@@ -11,8 +11,6 @@ services:
       - ./mg_lib:/var/lib/memgraph
       - ./mg_log:/var/log/memgraph
       - ./mg_etc:/etc/memgraph
-    # REMOVED THE COMMAND LINE HERE
-
   app:
     build: .
     container_name: streamlit-app
