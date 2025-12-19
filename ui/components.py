@@ -5,7 +5,6 @@ class Components:
     def result_card(res, algo_name):
         if not res: return
         
-        # 1. Xác định dữ liệu hiển thị
         val_lbl = "ĐỈNH ĐÃ DUYỆT"
         val_num = 0
         path_lbl = "📌 CHI TIẾT LỘ TRÌNH / CẠNH:"
@@ -14,7 +13,6 @@ class Components:
         if res.get('type') == 'mst':
             val_lbl = "TỔNG TRỌNG SỐ"
             val_num = res.get('cost', 0)
-            # MST edges thường trả về tuple (u, v), không cần sửa key dictionary
             path_txt = ",  ".join([f"({u}-{v})" for u, v in res.get('mst_edges', [])])
         
         elif res.get('type') == 'path':
@@ -26,7 +24,6 @@ class Components:
             val_num = len(res.get('path_nodes', []))
             path_txt = " ➝ ".join(res.get('path_nodes', []))
 
-        # 2. Render HTML
         st.markdown(f"""
         <div class="result-card">
             <div class="res-left">
@@ -45,7 +42,7 @@ class Components:
     def input_section(session_state, on_change_callback):
         col_L, col_R = st.columns([1, 1.8], gap="large")
 
-        # --- NODES (QUẢN LÝ ĐỈNH) ---
+        # --- NODES ---
         with col_L:
             st.markdown('<div class="input-title">📍 QUẢN LÝ ĐỈNH</div>', unsafe_allow_html=True)
             with st.form("f_node", clear_on_submit=True):
@@ -58,7 +55,8 @@ class Components:
                         clean_name = str(new_name).strip()
                         if clean_name not in session_state.nodes:
                             session_state.nodes.append(clean_name)
-                            on_change_callback()
+                            session_state.dirty = True 
+                            on_change_callback() # <--- QUAN TRỌNG
                 
                 c2.form_submit_button("Thêm", type="primary", on_click=add_n, use_container_width=True)
 
@@ -75,17 +73,17 @@ class Components:
                     
                     def del_n(idx=i, name=n):
                         session_state.nodes.pop(idx)
-                        # --- CHUẨN HÓA LOGIC XÓA: Dùng key 'source' / 'target' ---
                         session_state.edges = [
                             e for e in session_state.edges 
                             if e.get('source') != name and e.get('target') != name
                         ]
-                        on_change_callback()
+                        session_state.dirty = True 
+                        on_change_callback() # <--- QUAN TRỌNG
                         
                     r2.button("✕", key=f"dn_{i}", type="secondary", use_container_width=True, on_click=del_n)
                     st.markdown("<hr>", unsafe_allow_html=True)
 
-        # --- EDGES (QUẢN LÝ CẠNH) ---
+        # --- EDGES ---
         with col_R:
             st.markdown('<div class="input-title">🔗 QUẢN LÝ CẠNH</div>', unsafe_allow_html=True)
             with st.form("f_edge", clear_on_submit=False):
@@ -96,24 +94,20 @@ class Components:
                 c3.selectbox("Đến", session_state.nodes, key="input_edge_target")
                 
                 def add_e():
-                    # 1. Lấy dữ liệu từ key của input
                     s = st.session_state.get("input_edge_src")
                     d = st.session_state.get("input_edge_target")
                     w = st.session_state.get("input_edge_w", 1)
                     
                     if s and d:
-                        # 2. CHUẨN HÓA TUYỆT ĐỐI: Chỉ dùng source, target, weight
                         new_edge = {
                             "source": str(s).strip(),
                             "target": str(d).strip(),
                             "weight": int(w)
                         }
-                        
-                        # 3. Kiểm tra trùng lặp trước khi thêm để tránh rác DB
                         if new_edge not in session_state.edges:
                             session_state.edges.append(new_edge)
-                            # 4. Đảm bảo callback lưu vào DB được thực hiện
-                            on_change_callback()
+                            session_state.dirty = True 
+                            on_change_callback() # <--- QUAN TRỌNG
                         
                 c4.form_submit_button("Thêm", type="primary", on_click=add_e, use_container_width=True)
 
@@ -129,10 +123,8 @@ class Components:
                 for i, e in enumerate(session_state.edges):
                     r1, r2, r3 = st.columns(h_ratio, vertical_alignment="center")
                     
-                    # --- CHUẨN HÓA HIỂN THỊ ---
-                    # Dùng .get() với fallback để an toàn tuyệt đối
                     src = e.get('source', e.get('src', '?'))
-                    dst = e.get('target', e.get('target', '?')) # Lưu ý: target cũ cũng là target
+                    dst = e.get('target', e.get('target', '?')) 
                     w   = e.get('weight', e.get('w', 0))
 
                     r1.write(f"{src} ➝ {dst}")
@@ -140,7 +132,8 @@ class Components:
                     
                     def del_e(idx=i):
                         session_state.edges.pop(idx)
-                        on_change_callback()
+                        session_state.dirty = True 
+                        on_change_callback() # <--- QUAN TRỌNG
                         
                     r3.button("✕", key=f"de_{i}", type="secondary", use_container_width=True, on_click=del_e)
                     st.markdown("<hr>", unsafe_allow_html=True)

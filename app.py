@@ -15,28 +15,24 @@ load_css()
 # 2. INIT SERVICES
 if 'graph_service' not in st.session_state:
     st.session_state.graph_service = GraphService()
+    
+if "dirty" not in st.session_state:
+    st.session_state.dirty = False
 
 # --- QUY TRÌNH TẢI DỮ LIỆU AN TOÀN ---
 if 'data_loaded' not in st.session_state:
     try:
         db_nodes, db_edges = st.session_state.graph_service.load_from_db()
-        
-        # Gán vào State
         st.session_state.nodes = db_nodes if db_nodes else []
         st.session_state.edges = db_edges if db_edges else []
+        st.session_state.dirty = False
         
-        # In log debug ra giao diện để bạn yên tâm
         if st.session_state.edges:
             st.toast(f"✅ Đã tải: {len(st.session_state.edges)} cạnh từ DB.", icon="🔗")
-            # DEBUG: Kiểm tra xem key có đúng là 'target' không
-            first_edge = st.session_state.edges[0]
-            if 'target' not in first_edge:
-                st.error(f"⚠️ LỖI CẤU TRÚC DỮ LIỆU: {first_edge}")
-        
+            
     except Exception as e:
         st.error(f"Lỗi khởi động: {e}")
-        st.session_state.nodes = []
-        st.session_state.edges = []
+        st.session_state.nodes = []; st.session_state.edges = []
     
     st.session_state.data_loaded = True
 
@@ -45,9 +41,18 @@ if 'algo_result' not in st.session_state: st.session_state.algo_result = {}
 
 # Hàm đồng bộ
 def sync_data():
-    # Gọi hàm lưu xuống DB
-    st.session_state.graph_service.sync_to_db(st.session_state.nodes, st.session_state.edges)
-    st.session_state.algo_result = {}
+    if not st.session_state.dirty:
+        return
+
+    # 🔥 FIX: Bỏ đoạn kiểm tra if not st.session_state.edges
+    # Cho phép sync kể cả khi list rỗng để đảm bảo DB đúng với UI
+    
+    st.session_state.graph_service.sync_to_db(
+        st.session_state.nodes,
+        st.session_state.edges
+    )
+    
+    st.session_state.dirty = False
 
 # 3. UI LAYOUT
 st.title("Chương Trình Mô Phỏng Đồ Thị")
@@ -88,9 +93,19 @@ with col_ctrl:
     b1, b2 = st.columns(2)
     if b1.button("🔄 Reset KQ", use_container_width=True):
         st.session_state.algo_result = {}; st.rerun()
-    if b2.button("🗑️ Xóa All", type="secondary", use_container_width=True):
-        st.session_state.nodes = []; st.session_state.edges = []
-        sync_data()
+        
+    if b2.button("🗑️ Xóa UI"):
+        st.session_state.nodes = []
+        st.session_state.edges = []
+        st.session_state.dirty = True
+        sync_data() # Gọi sync ngay
+        st.rerun()
+        
+    if st.button("🔥 Xóa DB thật"):
+        st.session_state.graph_service.clear_db()
+        st.session_state.nodes = []
+        st.session_state.edges = []
+        st.session_state.dirty = False
         st.rerun()
 
 # CỘT TRÁI
@@ -99,7 +114,6 @@ with col_viz:
     viz_mode_mst = res.get('is_mst_mode', False)
     
     if st.session_state.nodes:
-        # Build đồ thị để vẽ
         G_viz = st.session_state.graph_service.build_networkx_graph(st.session_state.nodes, st.session_state.edges, for_mst=viz_mode_mst)
         html = Visualizer.render(G_viz, res, is_mst=viz_mode_mst)
         components.html(html, height=550)
