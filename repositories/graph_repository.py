@@ -8,10 +8,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 class GraphRepository:
-    """
-    Singleton Repository for Memgraph Database interactions.
-    Handles connection management, query execution, and data synchronization.
-    """
     _instance = None
     driver: Optional[Driver] = None
 
@@ -22,13 +18,11 @@ class GraphRepository:
         return cls._instance
 
     def _initialize(self) -> None:
-        """Initialize database connection securely."""
         self.driver = None
         host = os.getenv("MEMGRAPH_HOST", "memgraph-db")
         uri = f"bolt://{host}:7687"
         
         try:
-            # Memgraph CE (Community Edition) typically doesn't use auth by default in this setup
             self.driver = GraphDatabase.driver(uri, auth=("", ""))
             self.driver.verify_connectivity()
             logger.info(f"✅ Connected to Memgraph at {uri}")
@@ -42,7 +36,6 @@ class GraphRepository:
 
     @property
     def is_connected(self) -> bool:
-        """Check if driver is active and connected."""
         try:
             if self.driver:
                 self.driver.verify_connectivity()
@@ -52,7 +45,6 @@ class GraphRepository:
         return False
 
     def execute_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """Execute a Cypher query and return dictionary results."""
         if not self.driver:
             raise ConnectionError("Database driver is not initialized.")
             
@@ -61,20 +53,12 @@ class GraphRepository:
             return [record.data() for record in result]
 
     def get_all_nodes_and_edges(self) -> Tuple[List[str], List[Dict[str, Any]]]:
-        """
-        Retrieve existing graph structure from database.
-        Returns: (List of Node Names, List of Edge Dictionaries)
-        """
         if not self.is_connected:
             raise ConnectionError("Not connected to Memgraph")
 
-        # 1. Fetch Nodes
-        # Using list comprehension for speed
         raw_nodes = self.execute_query("MATCH (n:Node) RETURN n.name as name")
         nodes = [str(r['name']) for r in raw_nodes if r.get('name')]
 
-        # 2. Fetch Edges
-        # Always assume directed for this application
         q_edges = """
         MATCH (u:Node)-[r:LINK]->(v:Node) 
         RETURN u.name as source, v.name as target, r.weight as weight
@@ -86,7 +70,6 @@ class GraphRepository:
             src = r.get('source')
             tgt = r.get('target')
             
-            # Safe integer conversion for weight
             try:
                 w = int(r.get('weight', 1))
             except (ValueError, TypeError):
@@ -103,35 +86,23 @@ class GraphRepository:
         return nodes, edges
 
     def sync_graph(self, nodes: List[str], edges: List[Dict[str, Any]]) -> Tuple[bool, str]:
-        """
-        Synchronize in-memory graph state to the database securely.
-        Implements: Indexing -> Transactional Write -> Snapshot -> Verification.
-        """
         if not self.is_connected:
              return False, "Not connected to Memgraph"
 
         try:
             with self.driver.session() as session:
-                # 1. Optimization: Ensure Index exists
                 try:
                     session.run("CREATE INDEX ON :Node(name)")
                 except Exception: 
-                    pass # Ignore if index already exists or syntax differs by version
-
-                # 2. Atomic Transaction: Write Data
+                    pass 
                 with session.begin_transaction() as tx:
-                    # Merge Nodes
                     if nodes:
                         q_nodes = "UNWIND $batch as name MERGE (:Node {name: name})"
-                        # Sanitize strings
                         node_data = [str(n).strip() for n in nodes]
                         tx.run(q_nodes, {"batch": node_data})
 
-                    # Delete ALL existing edges to prevent staleness
                     tx.run("MATCH ()-[r:LINK]->() DELETE r")
 
-                    # Create New Edges
-                    # Uses CREATE instead of MERGE to bypass "edge property disabled" restrictions
                     if edges:
                         q_edges = """
                         UNWIND $batch as e
@@ -155,14 +126,12 @@ class GraphRepository:
                             
                     tx.commit()
             
-            # 3. Persistence: Force Snapshot to Disk
             try:
                 with self.driver.session() as session:
                     session.run("CREATE SNAPSHOT")
             except Exception as e:
                 logger.warning(f"Snapshot Failed (Data might be volatile): {e}")
 
-            # 4. Integrity Check: Verify Data was Written
             if edges:
                 check_q = "MATCH ()-[r:LINK]->() RETURN count(r) as c"
                 count_res = self.execute_query(check_q)
@@ -184,7 +153,6 @@ class GraphRepository:
             return False, str(e)
 
     def clear_database(self) -> None:
-        """Dangerous: Wipes entire database."""
         if not self.is_connected: return
         try:
             self.execute_query("MATCH (n) DETACH DELETE n")

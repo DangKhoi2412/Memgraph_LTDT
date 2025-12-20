@@ -11,13 +11,12 @@ class Components:
         path_lbl = "📌 CHI TIẾT LỘ TRÌNH:"
         path_txt = ""
 
-        # Chỉ còn 2 trường hợp: Pathfinding (Dijkstra/BF) hoặc Traversal (BFS/DFS)
         if res.get('type') == 'path':
             val_lbl = "TỔNG CHI PHÍ"
             val_num = res.get('cost', 0)
             path_txt = " ➝ ".join(res.get('path_nodes', []))
             
-        else: # BFS/DFS
+        else:
             val_num = len(res.get('path_nodes', []))
             path_txt = " ➝ ".join(res.get('path_nodes', []))
 
@@ -37,11 +36,8 @@ class Components:
 
     @staticmethod
     def input_section(session_state, on_change_callback):
-        # Phần input này giữ nguyên vì nó dùng để nhập liệu
-        # Logic nhập liệu (Từ -> Đến) đã phù hợp với đồ thị có hướng
         col_L, col_R = st.columns([1, 1.8], gap="large")
 
-        # --- NODES ---
         with col_L:
             st.markdown('<div class="input-title">📍 QUẢN LÝ ĐỈNH</div>', unsafe_allow_html=True)
             with st.form("f_node", clear_on_submit=True):
@@ -81,8 +77,7 @@ class Components:
                         
                     r2.button("✕", key=f"dn_{i}", type="secondary", use_container_width=True, on_click=del_n)
                     st.markdown("<hr>", unsafe_allow_html=True)
-
-        # --- EDGES ---
+    
         with col_R:
             st.markdown('<div class="input-title">🔗 QUẢN LÝ CẠNH (CÓ HƯỚNG)</div>', unsafe_allow_html=True)
             with st.form("f_edge", clear_on_submit=False):
@@ -126,7 +121,6 @@ class Components:
                     dst = e.get('target', e.get('target', '?')) 
                     w   = e.get('weight', e.get('w', 0))
 
-                    # Hiển thị mũi tên chỉ hướng rõ ràng
                     r1.write(f"{src} ➝ {dst}")
                     r2.write(f"{int(w)}")
                     

@@ -1,14 +1,12 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# Local Imports
 from ui.styles import load_css
 from ui.visualization import Visualizer
 from ui.components import Components
 from services.graph_service import GraphService
 from services.algorithm_service import AlgorithmFactory
 
-# --- 1. CONFIGURATION ---
 st.set_page_config(
     layout="wide", 
     page_title="Lý thuyết đồ thị: Memgraph", 
@@ -16,7 +14,6 @@ st.set_page_config(
 )
 load_css()
 
-# --- 2. STATE INITIALIZATION ---
 if 'graph_service' not in st.session_state:
     st.session_state.graph_service = GraphService()
     
@@ -26,7 +23,6 @@ if "dirty" not in st.session_state:
 if 'algo_result' not in st.session_state: 
     st.session_state.algo_result = {}
 
-# --- 3. DATA LOADING (SAFEGUARDED) ---
 if 'data_loaded' not in st.session_state:
     st.session_state.data_loaded = False
 
@@ -48,9 +44,7 @@ if not st.session_state.data_loaded:
         if st.button("🔄 Thử Lại Kết Nối"): st.rerun()
         st.stop() 
 
-# --- 4. CORE LOGIC ---
 def sync_data_callback():
-    """Callback triggers sync to DB when data changes."""
     if not st.session_state.dirty: return
     
     success, msg = st.session_state.graph_service.sync_to_db(
@@ -64,20 +58,15 @@ def sync_data_callback():
     else:
         st.error(f"Lỗi Lưu Data: {msg}")
 
-# --- 5. UI LAYOUT ---
 st.title("Chương Trình Mô Phỏng Đồ Thị (Có Hướng)")
 
 col_viz, col_ctrl = st.columns([4, 1], gap="large")
-
-# === PANEL: CONTROL ===
 with col_ctrl:
     st.markdown("### Bảng Điều Khiển")
     
-    # Algorithm Selection
     algos = ["BFS", "DFS", "Dijkstra", "Bellman-Ford"]
     algo_name = st.selectbox("Chọn Thuật toán", algos)
     
-    # Dynamic Inputs based on Algo
     need_end = algo_name not in ["BFS", "DFS"]
     
     c1 = st.container()
@@ -89,7 +78,6 @@ with col_ctrl:
 
     st.write("")
     
-    # EXECUTE BUTTON
     if st.button("THỰC HIỆN", type="primary", use_container_width=True):
         if not st.session_state.nodes:
             st.error("Đồ thị trống!")
@@ -109,7 +97,6 @@ with col_ctrl:
 
     st.write("")
     
-    # ACTIONS
     b1, b2 = st.columns(2)
     if b1.button("Reset KẾT QUẢ", use_container_width=True):
         st.session_state.algo_result = {}
@@ -130,7 +117,6 @@ with col_ctrl:
         st.session_state.dirty = False
         st.rerun()
 
-# === PANEL: VISUALIZATION ===
 with col_viz:
     res = st.session_state.algo_result
     
@@ -139,7 +125,6 @@ with col_viz:
             st.session_state.nodes, 
             st.session_state.edges
         )
-        # Verify Visualizer signature for is_mst support if needed, assuming default False
         html = Visualizer.render(G_viz, res) 
         components.html(html, height=550)
     else:
@@ -148,5 +133,4 @@ with col_viz:
     Components.result_card(res, res.get('algo_name', ''))
 
 st.markdown("---")
-# Input Section handling dynamic updates
 Components.input_section(st.session_state, sync_data_callback)

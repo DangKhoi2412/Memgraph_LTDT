@@ -1,22 +1,24 @@
-# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Virtual Environment (Môi trường ảo)
 venv/
 env/
 .env
 
-# VS Code settings (Không nên commit cấu hình riêng của máy bạn)
 .vscode/
 
-# Docker build cache (Nếu có)
 .docker/
 
-# Mac OS system files (Rác của Macbook)
 .DS_Store
 
-# Streamlit specific
 .streamlit/secrets.toml
+
+
+.lib/
+.mg_etc/
+.mg_lib/
+.mg_log/
+.mg_tmp/
+.mg_var/
