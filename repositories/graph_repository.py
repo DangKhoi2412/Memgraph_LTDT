@@ -25,9 +25,9 @@ class GraphRepository:
         try:
             self.driver = GraphDatabase.driver(uri, auth=("", ""))
             self.driver.verify_connectivity()
-            logger.info(f"✅ Connected to Memgraph at {uri}")
+            logger.info(f"Connected to Memgraph at {uri}")
         except Exception as e:
-            logger.error(f"⚠️ Connection Failed: {e}")
+            logger.error(f"Connection Failed: {e}")
             self.driver = None
 
     def close(self) -> None:

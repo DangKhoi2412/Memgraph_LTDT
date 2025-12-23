@@ -38,10 +38,10 @@ if not st.session_state.data_loaded:
             st.toast(f"✅ Đã tải: {len(st.session_state.edges)} cạnh từ DB.", icon="🔗")
             
     except Exception as e:
-        st.error(f"❌ LỖI VẬN HÀNH: Không thể tải dữ liệu từ Memgraph/Database.")
+        st.error(f"LỖI VẬN HÀNH: Không thể tải dữ liệu từ Memgraph/Database.")
         st.error(f"Chi tiết: {e}")
-        st.warning("⚠️ Ứng dụng đã dừng để ngăn chặn mất dữ liệu. Vui lòng kiểm tra Docker/Memgraph và thử lại.")
-        if st.button("🔄 Thử Lại Kết Nối"): st.rerun()
+        st.warning("Ứng dụng đã dừng để ngăn chặn mất dữ liệu. Vui lòng kiểm tra Docker/Memgraph và thử lại.")
+        if st.button("Thử Lại Kết Nối"): st.rerun()
         st.stop() 
 
 def sync_data_callback():
@@ -58,7 +58,7 @@ def sync_data_callback():
     else:
         st.error(f"Lỗi Lưu Data: {msg}")
 
-st.title("Chương Trình Mô Phỏng Đồ Thị (Có Hướng)")
+st.title("Chương Trình Mô Phỏng Đồ Thị Dựa trên Memgraph database")
 
 col_viz, col_ctrl = st.columns([4, 1], gap="large")
 with col_ctrl:
@@ -98,7 +98,7 @@ with col_ctrl:
     st.write("")
     
     b1, b2 = st.columns(2)
-    if b1.button("Reset KẾT QUẢ", use_container_width=True):
+    if b1.button("RESET KẾT QUẢ", use_container_width=True):
         st.session_state.algo_result = {}
         st.rerun()
         
