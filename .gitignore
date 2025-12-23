@@ -16,14 +16,9 @@ env/
 .streamlit/secrets.toml
 
 
-.lib/
-
-.mg_etc/
-
-.mg_lib/
-
-.mg_log/
-
-.mg_tmp/
-
-.mg_var/
+lib/
+mg_etc/
+mg_lib/
+mg_log/
+mg_tmp/
+mg_var/
