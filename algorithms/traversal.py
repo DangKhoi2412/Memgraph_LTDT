@@ -10,7 +10,6 @@ class BFS(IAlgorithm):
         
         visited.add(start_node)
         
-        # THUẬT TOÁN
         while queue:
             u = queue.popleft()
             path.append(u)

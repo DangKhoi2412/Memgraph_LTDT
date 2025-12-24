@@ -9,7 +9,6 @@ from ui.components import Components
 from services.graph_service import GraphService
 from services.algorithm_service import AlgorithmFactory
 
-# 1. SETUP
 st.set_page_config(
     layout="wide", 
     page_title="Lý thuyết đồ thị: Memgraph", 
@@ -17,7 +16,6 @@ st.set_page_config(
 )
 load_css()
 
-# 2. STATE INITIALIZATION
 if 'graph_service' not in st.session_state:
     st.session_state.graph_service = GraphService()
 
@@ -36,7 +34,6 @@ if 'cfg_graph_type' not in st.session_state:
 if 'cfg_is_weighted' not in st.session_state:
     st.session_state.cfg_is_weighted = True
 
-# 3. CALLBACKS & HELPERS (Must be defined before UI usage)
 
 def sync_data_callback():
     """Syncs current memory state to DB based on UI flags."""
@@ -45,7 +42,6 @@ def sync_data_callback():
     is_directed_db = st.session_state.get("cfg_graph_type", "Có hướng") == "Có hướng"
     is_weighted_db = st.session_state.get("cfg_is_weighted", True)
     
-    # Use force=False for regular updates
     success, msg = st.session_state.graph_service.sync_to_db(
         st.session_state.nodes,
         st.session_state.edges,
@@ -71,19 +67,15 @@ def load_graph_from_data(data):
     try:
         valid_nodes, valid_edges, valid_config = st.session_state.graph_service.from_json(data)
         
-        # 1. Update Data
         st.session_state.nodes = valid_nodes
         st.session_state.edges = valid_edges
         
-        # 2. Derive Config
         new_type = "Có hướng" if valid_config.get('is_directed', True) else "Vô hướng"
         new_weighted = valid_config.get('is_weighted', True)
         
-        # 3. Update Session State (Will be reflected in widgets on next run)
         st.session_state.cfg_graph_type = new_type
         st.session_state.cfg_is_weighted = new_weighted
         
-        # 4. Sync to DB IMMEDIATELY with FORCE=True (Overwrite DB)
         success, msg = st.session_state.graph_service.sync_to_db(
             valid_nodes,
             valid_edges,
@@ -128,15 +120,12 @@ def on_sample_click():
         except Exception as e:
             st.error(f"Không thể đọc mẫu {fname}: {e}")
 
-# 4. DATA LOADING (Startup)
 if not st.session_state.data_loaded:
     try:
         db_nodes, db_edges, db_config = st.session_state.graph_service.load_from_db()
         st.session_state.nodes = db_nodes if db_nodes else []
         st.session_state.edges = db_edges if db_edges else []
         
-        # Apply DB Config to Session State if config exists
-        # This overrides defaults, ensuring persistence works
         if db_config:
             st.session_state.cfg_graph_type = "Có hướng" if db_config.get('is_directed', True) else "Vô hướng"
             st.session_state.cfg_is_weighted = db_config.get('is_weighted', True)
@@ -153,18 +142,13 @@ if not st.session_state.data_loaded:
         if st.button("Thử Lại Kết Nối"): st.rerun()
         st.stop() 
 
-# 5. UI LAYOUT
 st.title("Chương Trình Mô Phỏng Đồ Thị Dựa Trên Memgraph")
 
-# --- SIDEBAR CONTROL PANEL ---
-# --- SIDEBAR CONTROL PANEL ---
 with st.sidebar:
     st.markdown("## 🎛️ Bảng Điều Khiển")
 
-    # 1. CONFIGURATION
     with st.expander("⚙️ Cấu Hình Đồ Thị", expanded=True):
         c_type, c_weight = st.columns(2)
-        # Widgets map to session_state keys automatically
         graph_type = c_type.radio(
             "Loại", 
             ["Có hướng", "Vô hướng"], 
@@ -183,12 +167,11 @@ with st.sidebar:
 
     st.write("")
 
-    # 2. ALGORITHMS
     with st.expander("🧮 Chọn Thuật Toán", expanded=True):
-        algos = ["BFS", "DFS", "Dijkstra", "Bellman-Ford"]
+        algos = ["BFS", "DFS", "Dijkstra", "Bellman-Ford", "Prim", "Kruskal"]
         algo_name = st.selectbox("Thuật toán", algos, label_visibility="collapsed")
         
-        need_end = algo_name not in ["BFS", "DFS"]
+        need_end = algo_name not in ["BFS", "DFS", "Prim", "Kruskal"]
         
         c1 = st.container()
         start = c1.selectbox("Bắt đầu", st.session_state.nodes) if st.session_state.nodes else None
@@ -222,7 +205,6 @@ with st.sidebar:
 
     st.write("")
     
-    # 3. ACTIONS
     with st.expander("🛠️ Tác Vụ", expanded=True):
         b1, b2 = st.columns(2)
         if b1.button("RESET KQ", use_container_width=True):
@@ -246,9 +228,7 @@ with st.sidebar:
 
     st.write("")
     
-    # 4. DATA MANAGEMENT
     with st.expander("📂 Quản Lý Dữ Liệu", expanded=False):
-        # EXPORT
         st.markdown("**1. Xuất Dữ Liệu**")
         if st.session_state.nodes:
             export_config = {
@@ -271,14 +251,12 @@ with st.sidebar:
 
         st.markdown("---")
         
-        # IMPORT
         st.markdown("**2. Nhập Dữ Liệu**")
         st.file_uploader("Chọn file JSON", type=["json"], key="u_file")
         st.button("Lên tải & Áp dụng", on_click=on_import_click)
 
         st.markdown("---")
         
-        # SAMPLES
         st.markdown("**3. Dữ Liệu Mẫu**")
         sample_keys = [
             "Mẫu 1: Đồ thị có hướng có trọng số",
@@ -287,11 +265,9 @@ with st.sidebar:
         st.selectbox("Chọn mẫu", sample_keys, key="sel_sample")
         st.button("Tải Mẫu", on_click=on_sample_click, type="secondary")
 
-# --- MAIN VISUALIZATION ---
 res = st.session_state.algo_result
     
 if st.session_state.nodes:
-    # Use visualization settings from Result (if available) or Current State
     viz_directed = res.get('is_directed', is_directed)
     viz_weighted = res.get('is_weighted', is_weighted)
     

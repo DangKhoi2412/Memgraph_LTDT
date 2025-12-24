@@ -21,29 +21,25 @@ class GraphService:
 
     def sync_to_db(self, nodes: List[str], edges: List[Dict[str, Any]], is_directed: bool = True, is_weighted: bool = True, force: bool = False) -> Tuple[bool, str]:
         if not self.last_load_successful and not force:
-            msg = "⚠️ Safety Lock: Cannot sync because initial load failed. Use force=True to overwrite."
+            msg = "⚠️ Khóa an toàn: Không thể đồng bộ vì quá trình tải dữ liệu ban đầu thất bại. Sử dụng force=True để ghi đè."
             logger.warning(msg)
             return False, msg
 
         edges_to_sync = list(edges)
         if not is_directed:
-            # For undirected graphs, ensure bidirectional storage (A->B and B->A)
-            # This allows Cypher queries to traverse in both directions even if they follow standard directed semantics
             augmented_edges = []
             seen = set()
             
             for e in edges_to_sync:
                 s, t, w = e.get('source'), e.get('target'), e.get('weight', 1)
                 
-                # Add original
                 sig = (s, t)
                 if sig not in seen:
                     augmented_edges.append(e)
                     seen.add(sig)
                 
-                # Add reverse
                 rev_sig = (t, s)
-                if rev_sig not in seen and s != t: # Avoid duplicating self-loops if handled elsewhere, but self-loops are fine
+                if rev_sig not in seen and s != t: 
                     rev_edge = e.copy()
                     rev_edge['source'] = t
                     rev_edge['target'] = s
@@ -52,7 +48,6 @@ class GraphService:
             
             edges_to_sync = augmented_edges
 
-        # Auto-save config
         self.repository.save_config(is_directed, is_weighted)
 
         return self.repository.sync_graph(nodes, edges_to_sync)
@@ -73,8 +68,8 @@ class GraphService:
         config = data.get('config', {})
         
         # Basic validation
-        if not isinstance(nodes, list): raise ValueError("Format error: 'nodes' must be a list.")
-        if not isinstance(edges, list): raise ValueError("Format error: 'edges' must be a list.")
+        if not isinstance(nodes, list): raise ValueError("Lỗi định dạng: 'nodes' phải là một danh sách.")
+        if not isinstance(edges, list): raise ValueError("Lỗi định dạng: 'edges' phải là một danh sách.")
         
         return nodes, edges, config
     

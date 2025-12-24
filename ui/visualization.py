@@ -35,6 +35,11 @@ class Visualizer:
                 except ValueError: 
                     pass
             
+            if mst_edges:
+                if (u, v) in mst_edges or (v, u) in mst_edges:
+                    color = "#E91E63" 
+                    width = 4
+            
             label = str(d.get('weight', 1)) if is_weighted else ""
             net.add_edge(u, v, label=label, color=color, width=width)
 

@@ -16,6 +16,14 @@ class Components:
             val_num = res.get('cost', 0)
             path_txt = " ➝ ".join(res.get('path_nodes', []))
             
+        elif res.get('type') == 'mst':
+            val_lbl = "TỔNG TRỌNG SỐ"
+            val_num = res.get('cost', 0)
+            path_lbl = "CÁC CẠNH TRONG CÂY KHUNG:"
+            edges = res.get('mst_edges', [])
+            edge_strs = [f"{u}-{v}" for u, v in edges]
+            path_txt = ", ".join(edge_strs)
+
         else:
             val_num = len(res.get('path_nodes', []))
             path_txt = " ➝ ".join(res.get('path_nodes', []))
@@ -88,7 +96,7 @@ class Components:
                 if is_weighted:
                     c2.number_input("W", value=1, step=1, key="input_edge_w")
                 else:
-                    c2.empty() # Placeholder to keep layout alignment or just skip
+                    c2.empty()
 
                 c3.selectbox("Đến", session_state.nodes, key="input_edge_target")
                 
@@ -129,7 +137,8 @@ class Components:
                     dst = e.get('target', e.get('target', '?')) 
                     w   = e.get('weight', e.get('w', 0))
 
-                    r1.write(f"{src} ➝ {dst}")
+                    arrow = "➝" if is_directed else "—"
+                    r1.write(f"{src} {arrow} {dst}")
                     if is_weighted:
                         r2.write(f"{int(w)}")
                     else:
