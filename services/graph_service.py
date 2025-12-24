@@ -19,9 +19,9 @@ class GraphService:
             self.last_load_successful = False
             raise e
 
-    def sync_to_db(self, nodes: List[str], edges: List[Dict[str, Any]], is_directed: bool = True, is_weighted: bool = True) -> Tuple[bool, str]:
-        if not self.last_load_successful:
-            msg = "⚠️ Safety Lock: Cannot sync because initial load failed."
+    def sync_to_db(self, nodes: List[str], edges: List[Dict[str, Any]], is_directed: bool = True, is_weighted: bool = True, force: bool = False) -> Tuple[bool, str]:
+        if not self.last_load_successful and not force:
+            msg = "⚠️ Safety Lock: Cannot sync because initial load failed. Use force=True to overwrite."
             logger.warning(msg)
             return False, msg
 
@@ -59,6 +59,24 @@ class GraphService:
 
     def clear_db(self) -> None:
         self.repository.clear_database()
+
+    def to_json(self, nodes: List[str], edges: List[Dict[str, Any]], config: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "config": config,
+            "nodes": nodes,
+            "edges": edges
+        }
+
+    def from_json(self, data: Dict[str, Any]) -> Tuple[List[str], List[Dict[str, Any]], Dict[str, Any]]:
+        nodes = data.get('nodes', [])
+        edges = data.get('edges', [])
+        config = data.get('config', {})
+        
+        # Basic validation
+        if not isinstance(nodes, list): raise ValueError("Format error: 'nodes' must be a list.")
+        if not isinstance(edges, list): raise ValueError("Format error: 'edges' must be a list.")
+        
+        return nodes, edges, config
     
     def build_networkx_graph(self, nodes: List[str], edges: List[Dict[str, Any]], is_directed: bool = True, is_weighted: bool = True) -> nx.Graph:
         G = nx.DiGraph() if is_directed else nx.Graph()

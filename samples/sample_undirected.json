@@ -1,0 +1,51 @@
+{
+    "config": {
+        "is_directed": false,
+        "is_weighted": true
+    },
+    "nodes": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F"
+    ],
+    "edges": [
+        {
+            "source": "A",
+            "target": "B",
+            "weight": 12
+        },
+        {
+            "source": "A",
+            "target": "D",
+            "weight": 9
+        },
+        {
+            "source": "A",
+            "target": "E",
+            "weight": 16
+        },
+        {
+            "source": "B",
+            "target": "C",
+            "weight": 6
+        },
+        {
+            "source": "D",
+            "target": "E",
+            "weight": 7
+        },
+        {
+            "source": "E",
+            "target": "F",
+            "weight": 14
+        },
+        {
+            "source": "C",
+            "target": "F",
+            "weight": 5
+        }
+    ]
+}
