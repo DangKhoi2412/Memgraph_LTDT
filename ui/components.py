@@ -35,7 +35,7 @@ class Components:
         """, unsafe_allow_html=True)
 
     @staticmethod
-    def input_section(session_state, on_change_callback):
+    def input_section(session_state, on_change_callback, is_directed=True, is_weighted=True):
         col_L, col_R = st.columns([1, 1.8], gap="large")
 
         with col_L:
@@ -79,18 +79,23 @@ class Components:
                     st.markdown("<hr>", unsafe_allow_html=True)
     
         with col_R:
-            st.markdown('<div class="input-title">🔗 QUẢN LÝ CẠNH (CÓ HƯỚNG)</div>', unsafe_allow_html=True)
+            type_lbl = "(CÓ HƯỚNG)" if is_directed else "(VÔ HƯỚNG)"
+            st.markdown(f'<div class="input-title">🔗 QUẢN LÝ CẠNH {type_lbl}</div>', unsafe_allow_html=True)
             with st.form("f_edge", clear_on_submit=False):
                 c1, c2, c3, c4 = st.columns([2, 1.5, 2, 1.2], vertical_alignment="bottom")
                 
                 c1.selectbox("Từ", session_state.nodes, key="input_edge_src")
-                c2.number_input("W", value=1, step=1, key="input_edge_w")
+                if is_weighted:
+                    c2.number_input("W", value=1, step=1, key="input_edge_w")
+                else:
+                    c2.empty() # Placeholder to keep layout alignment or just skip
+
                 c3.selectbox("Đến", session_state.nodes, key="input_edge_target")
                 
                 def add_e():
                     s = st.session_state.get("input_edge_src")
                     d = st.session_state.get("input_edge_target")
-                    w = st.session_state.get("input_edge_w", 1)
+                    w = st.session_state.get("input_edge_w", 1) if is_weighted else 1
                     
                     if s and d:
                         new_edge = {
@@ -109,7 +114,10 @@ class Components:
             h_ratio = [3, 1.5, 1]
             h1, h2, h3 = st.columns(h_ratio, vertical_alignment="center")
             h1.markdown('<div class="grid-header">CHI TIẾT</div>', unsafe_allow_html=True)
-            h2.markdown('<div class="grid-header">TRỌNG SỐ</div>', unsafe_allow_html=True)
+            if is_weighted:
+                h2.markdown('<div class="grid-header">TRỌNG SỐ</div>', unsafe_allow_html=True)
+            else:
+                 h2.markdown('<div class="grid-header"></div>', unsafe_allow_html=True)
             h3.markdown('<div class="grid-header" style="text-align:center">XÓA</div>', unsafe_allow_html=True)
 
             with st.container(height=300):
@@ -122,7 +130,10 @@ class Components:
                     w   = e.get('weight', e.get('w', 0))
 
                     r1.write(f"{src} ➝ {dst}")
-                    r2.write(f"{int(w)}")
+                    if is_weighted:
+                        r2.write(f"{int(w)}")
+                    else:
+                        r2.write("")
                     
                     def del_e(idx=i):
                         session_state.edges.pop(idx)

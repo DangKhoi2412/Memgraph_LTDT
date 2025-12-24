@@ -4,8 +4,8 @@ import networkx as nx
 
 class Visualizer:
     @staticmethod
-    def render(G: nx.DiGraph, result: dict, is_mst: bool = False) -> str:
-        net = Network(height="550px", width="100%", bgcolor="#FFFFFF", font_color="#000", directed=True)
+    def render(G: nx.Graph, result: dict, is_mst: bool = False, is_directed: bool = True, is_weighted: bool = True) -> str:
+        net = Network(height="550px", width="100%", bgcolor="#FFFFFF", font_color="#000", directed=is_directed)
         
         path = result.get('path_nodes', [])
         mst_edges = result.get('mst_edges', [])
@@ -35,7 +35,8 @@ class Visualizer:
                 except ValueError: 
                     pass
             
-            net.add_edge(u, v, label=str(d.get('weight', 1)), color=color, width=width)
+            label = str(d.get('weight', 1)) if is_weighted else ""
+            net.add_edge(u, v, label=label, color=color, width=width)
 
         net.set_options('{"physics": {"forceAtlas2Based": {"gravitationalConstant": -100, "springLength": 120}, "solver": "forceAtlas2Based"}}')
         

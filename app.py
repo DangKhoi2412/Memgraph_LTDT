@@ -28,14 +28,23 @@ if 'data_loaded' not in st.session_state:
 
 if not st.session_state.data_loaded:
     try:
-        db_nodes, db_edges = st.session_state.graph_service.load_from_db()
+        db_nodes, db_edges, db_config = st.session_state.graph_service.load_from_db()
         st.session_state.nodes = db_nodes if db_nodes else []
         st.session_state.edges = db_edges if db_edges else []
+        
+        # Initialize Config from DB
+        if 'cfg_graph_type' not in st.session_state:
+            st.session_state.cfg_graph_type = "Có hướng" if db_config.get('is_directed', True) else "Vô hướng"
+        
+        if 'cfg_is_weighted' not in st.session_state:
+            st.session_state.cfg_is_weighted = db_config.get('is_weighted', True)
+            
         st.session_state.dirty = False
         st.session_state.data_loaded = True
         
         if st.session_state.edges:
             st.toast(f"✅ Đã tải: {len(st.session_state.edges)} cạnh từ DB.", icon="🔗")
+            
             
     except Exception as e:
         st.error(f"LỖI VẬN HÀNH: Không thể tải dữ liệu từ Memgraph/Database.")
@@ -47,9 +56,14 @@ if not st.session_state.data_loaded:
 def sync_data_callback():
     if not st.session_state.dirty: return
     
+    is_directed_db = st.session_state.get("cfg_graph_type", "Có hướng") == "Có hướng"
+    is_weighted_db = st.session_state.get("cfg_is_weighted", True)
+    
     success, msg = st.session_state.graph_service.sync_to_db(
         st.session_state.nodes,
-        st.session_state.edges
+        st.session_state.edges,
+        is_directed=is_directed_db,
+        is_weighted=is_weighted_db
     )
     
     if success:
@@ -58,11 +72,28 @@ def sync_data_callback():
     else:
         st.error(f"Lỗi Lưu Data: {msg}")
 
+def save_config_callback():
+    # Save config immediately when changed
+    is_directed = st.session_state.cfg_graph_type == "Có hướng"
+    is_weighted = st.session_state.cfg_is_weighted
+    st.session_state.graph_service.repository.save_config(is_directed, is_weighted)
+    st.toast("Đã lưu cấu hình!", icon="💾")
+
 st.title("Chương Trình Mô Phỏng Đồ Thị Dựa trên Memgraph database")
 
 col_viz, col_ctrl = st.columns([4, 1], gap="large")
 with col_ctrl:
     st.markdown("### Bảng Điều Khiển")
+
+    st.markdown("##### Cấu Hình Đồ Thị")
+    c_type, c_weight = st.columns(2)
+    # Using keys to persist state across reruns
+    graph_type = c_type.radio("Loại", ["Có hướng", "Vô hướng"], horizontal=True, label_visibility="collapsed", key="cfg_graph_type", on_change=save_config_callback)
+    is_weighted = c_weight.checkbox("Trọng số", value=True, key="cfg_is_weighted", on_change=save_config_callback)
+    
+    is_directed = graph_type == "Có hướng"
+    
+    st.markdown("---")
     
     algos = ["BFS", "DFS", "Dijkstra", "Bellman-Ford"]
     algo_name = st.selectbox("Chọn Thuật toán", algos)
@@ -85,13 +116,17 @@ with col_ctrl:
             try:
                 G = st.session_state.graph_service.build_networkx_graph(
                     st.session_state.nodes, 
-                    st.session_state.edges
+                    st.session_state.edges,
+                    is_directed=is_directed,
+                    is_weighted=is_weighted
                 )
                 algorithm = AlgorithmFactory.get_algorithm(algo_name)
                 res = algorithm.execute(G, start, end)
                 
                 st.session_state.algo_result = res
                 st.session_state.algo_result['algo_name'] = algo_name
+                st.session_state.algo_result['is_directed'] = is_directed
+                st.session_state.algo_result['is_weighted'] = is_weighted
             except Exception as e:
                 st.error(f"Lỗi: {e}")
 
@@ -123,9 +158,15 @@ with col_viz:
     if st.session_state.nodes:
         G_viz = st.session_state.graph_service.build_networkx_graph(
             st.session_state.nodes, 
-            st.session_state.edges
+            st.session_state.edges,
+            is_directed=res.get('is_directed', is_directed), 
+            is_weighted=res.get('is_weighted', is_weighted)
         )
-        html = Visualizer.render(G_viz, res) 
+        # Use result settings if available (snapshot), else current UI settings
+        viz_directed = res.get('is_directed', is_directed)
+        viz_weighted = res.get('is_weighted', is_weighted)
+        
+        html = Visualizer.render(G_viz, res, is_directed=viz_directed, is_weighted=viz_weighted) 
         components.html(html, height=550)
     else:
         st.info("Chưa có dữ liệu. Hãy thêm đỉnh và cạnh.")
@@ -133,4 +174,4 @@ with col_viz:
     Components.result_card(res, res.get('algo_name', ''))
 
 st.markdown("---")
-Components.input_section(st.session_state, sync_data_callback)
+Components.input_section(st.session_state, sync_data_callback, is_directed=is_directed, is_weighted=is_weighted)

@@ -52,7 +52,7 @@ class GraphRepository:
             result = session.run(query, params or {})
             return [record.data() for record in result]
 
-    def get_all_nodes_and_edges(self) -> Tuple[List[str], List[Dict[str, Any]]]:
+    def get_all_nodes_and_edges(self) -> Tuple[List[str], List[Dict[str, Any]], Dict[str, Any]]:
         if not self.is_connected:
             raise ConnectionError("Not connected to Memgraph")
 
@@ -83,7 +83,18 @@ class GraphRepository:
                 })
         
         logger.info(f"📥 Loaded {len(nodes)} nodes, {len(edges)} edges.")
-        return nodes, edges
+        
+        # Load config
+        config = {"is_directed": True, "is_weighted": True}
+        try:
+            res_conf = self.execute_query("MATCH (c:Config {id: 'main'}) RETURN c.is_directed as d, c.is_weighted as w")
+            if res_conf:
+                config["is_directed"] = res_conf[0].get('d', True)
+                config["is_weighted"] = res_conf[0].get('w', True)
+        except Exception as e:
+            logger.warning(f"Could not load config: {e}")
+
+        return nodes, edges, config
 
     def sync_graph(self, nodes: List[str], edges: List[Dict[str, Any]]) -> Tuple[bool, str]:
         if not self.is_connected:
@@ -150,6 +161,18 @@ class GraphRepository:
             
         except Exception as e:
             logger.error(f"Sync Error: {e}")
+            return False, str(e)
+
+    def save_config(self, is_directed: bool, is_weighted: bool) -> None:
+        if not self.is_connected: return
+        try:
+            query = """
+            MERGE (c:Config {id: 'main'})
+            SET c.is_directed = $d, c.is_weighted = $w
+            """
+            self.execute_query(query, {"d": is_directed, "w": is_weighted})
+        except Exception as e:
+            logger.error(f"Save Config Error: {e}")
             return False, str(e)
 
     def clear_database(self) -> None:
